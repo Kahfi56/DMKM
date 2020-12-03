@@ -1,0 +1,108 @@
+---
+title: "Regresi Logistik"
+author: "Ashabul Kahfi Sipahutar"
+date: "27/10/2020"
+output: html_document
+---
+
+### Load Library
+
+Library **psych** akan digunakan untuk melihat korelasi antar variabel dan library **caret** digunakan untuk membuat confusion matriks dan melihar akurasi model.
+
+```{r message=FALSE, warning=FALSE}
+library(psych)
+library(caret)
+```
+
+### Baca Data
+Data tersimpan di folder `dataset`
+```{r}
+tae<- read.csv("C:/Users/AL KAHFI/Downloads/tae.csv", header=T)
+head(tae)
+```
+
+### Konversi Data
+Mengubah variabel **ta** ,**summer** dan **class_attribut** menjadi bertipe factor
+```{r}
+tae$ta  <- as.factor(tae$ta)
+tae$summer <- as.factor(tae$summer)
+tae$class_attribut <- as.factor(tae$class_attribut)
+str(tae)
+```
+
+### Pair Plot
+
+```{r}
+pairs.panels(tae)
+```
+
+Berdasarkan korelasi dari setiap variabel dapat dilihat bahwa tidak ada hubungan yang melebihi dari 0.6, sehingga dapat disimpulkan bahwa berdasarkan nilai korelasi tidak terdapat multikolinearitas antar variabel.
+
+
+### Split Data
+Memecah data menjadi data training(80% dari data awal) dan data test (20% dari data awal)
+```{r}
+set.seed(1234)
+sampel <- sample(2, nrow(tae), replace = T, prob = c(0.8,0.2))
+trainingdat <- tae[sampel==1, ]
+testingdat <- tae[sampel==2, ]
+print(paste("Jumlah Train Data: ", nrow(trainingdat), "| Jumlah Test Data: ", nrow(testingdat)))
+```
+
+### Buat Model
+Karena kasus ini hanya ta apakah english speaker atau bukan english speaker, maka model yang dibangun adalah model regresi logistik sederhana.
+##Model1
+```{r}
+model1 <- glm(ta~., data = trainingdat, family = binomial(link="logit"))
+summary(model1)
+```
+Berdasarkan dari Model 1 masih ditemui variabel yang tidak berpengaruh signifikan terhadap model, karena nilai p-value > α=5% sehingga variabel yang tidak berpengaruh harus dihilangkan. Mengeliminasi variabel prediktor dengan cara backward. Untuk langkah selanjutnya adalah menghilangkan variabel class_attribut
+
+##Model2
+```{r}
+model2 <- glm(ta~instruktur_kursus+kursus+summer+class_size, data = trainingdat, family = binomial(link="logit"))
+summary(model2)
+```
+Pada model ini masih ditemukan variabel yang tidak signifikan, sehingga perlu dilakukan eliminasi pada variabel kursus.
+
+##Model3
+```{r}
+model3 <- glm(ta~instruktur_kursus+summer+class_size, data = trainingdat, family = binomial(link="logit"))
+summary(model3)
+```
+Nilai p-value pada semua variabel untuk Model 4 sudah berpengaruh signifikan, karena nilai p-value < α=5% . Sehingga dapat dilanjut ke tahap selanjutnya.
+
+#### Kriteria AIC
+```{r}
+model <- c("Model 1","Model 2","Model 3")
+       AIC <- c(model1$aic,model2$aic,model3$aic)
+       kriteria <- data.frame(model,AIC)
+       kriteria 
+```
+Dari hasil output diatas dapat dilihat bahwa Model 1 merupakan model yang terbaik karena memiliki nilai AIC terkecil yaitu 113.8794
+
+#### Koefisien model
+```{r}
+coefficients(model1)
+```
+
+### Model Evaluation
+#### Melakukan Prediksi
+
+```{r}
+prediksilogreg <- predict(model1, testingdat, type="response")
+prediksilogreg
+```
+
+Menyaring prediksi, lebih besar dari 0.05 dikategorikan 1 (English Speaker) selain itu dikategorikan 2 (bukan English Speaker)
+
+```{r}
+pred <- ifelse(prediksilogreg>0.5, 1, 2)
+pred
+```
+
+#### Confusion Matrix
+```{r}
+confusionMatrix(table(pred, testingdat$ta))
+```
+
